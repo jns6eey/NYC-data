@@ -1,0 +1,124 @@
+---
+title: "Project Part 1" 
+author: " "
+fontsize: 12pt
+geometry: margin=1in
+urlcolor: black
+output: pdf_document
+header-includes:
+- \usepackage{setspace}
+- \onehalfspacing
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, highlight=FALSE)
+```
+
+```{r, echo=FALSE}
+# For Part 1, use this chunk for reading in the data with a path that identifies you.
+```
+
+## Data Information  
+The data set I chose was the Average SAT Scores for NYC Public Schools from Kaggle’s public repository. This data set includes every “accredited” public high school in New York City for the 2014-2015 school year. School.ID is the department ID number given to high schools in NY. School.Name is the name of the high school. Borough is which of the five New York boroughs the school is located in (Staten Island, Queens, Manhattan,the Bronx, Brooklyn). Building.Code is the code for the high school’s building. Street.Address is the address of the school. City is the city the school is located in. State is New York for all of the schools. Zip.Code is the Zip code the school is in. Latitude and Longitude are the exact coordinates of the school. Phone.Number is the school’s phone number. Start and End time are the start and end times of the school days. Student.Enrollment is the number of students the school has. Percent.[race] represent the percentage of each given race that is in the school body (Hispanic, Asian, Black, White). Average.SAT...Score.Math/Reading/Writing gives the average SAT score for the given subject. Percent.Tested represents the proportion of the student body who took the test to contribute to the average scores. 
+
+****
+The first part of the data was compiled by the New York City Department of Education (including all the information of the schools and racial breakdown); the second part of the data ,which included the Average SAT breakdowns, was collected from the College Board (the administrator of the SAT). The data includes information for every public high school in NYC. The population for this study is public high schools in New York City, and this study represents the entire population (with the exception of those data could not be collected on). Due to the urban nature of NYC, I do not want to treat this as a sample of all high school students as these students live in different conditions than most suburban or rural areas. 
+
+***
+
+Some potential issues with the data is that some schools have no data for Average ACT scores, and the racial percentages and thus they will not be included in the analysis. This may bias the results because these schools' averages could have changed the results of the outcome. I had to remove the row if the data was missing. Out of 435 schools, we remove 60, leaving behind a significant amassment of data. Another issue is that some of the variables are repetitive and non-essential to the point of the data. We do not need the State variable as every school is located in New York. Additionally, the Borough and city variable tell us almost the exact same information about location. This makes me question the data collection process a bit because the data collectors did not see an issue with compiling the data in this fashion.Finally, the main variable here is the Average.SAT scores and since this is an average (mean) of all the kids in the school, there may be outliers which skew the average in either direction.There are only 10 schools given for Staten Island which means the mean can be greatly affected by outliers given their are less data points to even out an outlier. Thankfully, all of the 10 Staten Island data points have data in all categories, so we do not have to drop any rows.
+
+
+# Data Cleaning
+```{r message=FALSE, warning=FALSE}
+library(ggplot2)
+library(dplyr)
+scores=read.csv("/Users/jennashort/Documents/scores.csv")
+##rename variables for easier coding
+scores=scores%>%
+  rename(Avg.Sat.Math=Average.Score..SAT.Math.,
+         Avg.Sat.Reading=Average.Score..SAT.Reading.,
+         Avg.Sat.Writing=Average.Score..SAT.Writing.)
+#make decimals into whole numbers
+scores=scores%>%
+  mutate(Percent.White=Percent.White*100, 
+    Percent.Black=Percent.Black*100,Percent.Asian=Percent.Asian*100,
+    Percent.Hispanic=Percent.Hispanic*100, Percent.Tested= Percent.Tested*100)
+#create categorical variable for race
+scores= scores%>%
+  mutate(Highest_race_Percent=ifelse(Percent.White>=40,"Majority White",
+ifelse(Percent.Black>=40 & Percent.Black>=40,"Majority Black and Hispanic",
+ifelse(Percent.Asian>=40,"Majority Asian",ifelse(Percent.Hispanic>=40,
+"Majority Hispanic",ifelse(Percent.Black>=40, "Majority Black",
+"No Majority"))))))
+
+
+
+nrow(scores)
+
+```
+# Data Analysis
+``` {r}
+ggplot(scores, aes(x=Avg.Sat.Reading, y=Avg.Sat.Math, color=Avg.Sat.Writing)) +
+  geom_point() +scale_color_gradient(low="grey",high="blue") + 
+  labs(x="Average SAT Reading score",y="Average SAT Math Score", 
+   color="Average SAT Writing Score",title="Comparison of SAT Score Sections") +
+  geom_smooth(method=lm, color="black")
+
+```
+There is clearly a direct, positive correlation between how well a school does on one of their SAT sections and how they do on the rest of the SAT sections. Thus, moving forward, we can use one subject to be indicative of how they did on the SAT overall.
+
+```{r message=FALSE, warning=FALSE}
+scores%>%
+  group_by(Borough)%>%
+summarise(mean_math_score=mean(Avg.Sat.Math, na.rm=T),
+          mean_read_score=mean(Avg.Sat.Reading,
+na.rm=T),mean_write_score=mean(Avg.Sat.Writing,na.rm=T))
+
+ggplot(scores, aes(x=Borough,y=Avg.Sat.Math)) + 
+  stat_summary(fun.y=mean, geom="bar", color= "black",fill="white") +
+   stat_summary(fun.y=mean, geom="text", aes(label=round(..y..)), vjust=1.5, 
+               position=position_dodge(0.9), color="black") +
+  labs(x="NYC Boroughs", y="Overall Average Math SAT", 
+       title= "Average Math SAT by Borough")
+
+```
+This graph and numerical output show that the Average Math SAT scores increase going from the Bronx to Staten Island. The Bronx has a significantly lower average than that of Staten Island (404 vs 486).
+
+
+```{r message=FALSE, warning=FALSE}
+raceper=scores[,c(3,15,16,17,18)]
+White_Percent=round(tapply(raceper$Percent.White,raceper$Borough,
+                           mean,na.rm=T),2)
+Black_Percent=round(tapply(raceper$Percent.Black,raceper$Borough,
+                           mean,na.rm=T),2)
+Asian_Percent=s=round(tapply(raceper$Percent.Asian,raceper$Borough,
+                             mean,na.rm=T),2)
+Hispanic_Percent=s=round(tapply(raceper$Percent.Hispanic,raceper$Borough,
+                                mean,na.rm=T),2)
+
+mean_race=rbind(White_Percent,Black_Percent,Asian_Percent,Hispanic_Percent)
+mean_race
+
+```
+From the numerical summary, we can see that the average racial makeup of each borough varies significantly. The Bronx has the highest proportion of Hispanic population in schools. Manhattan also has a significant proportion of Hispanic students with over 50% on average. Staten Island has the highest percentage of white student population. Brooklyn has the highest Black student proportion of population, and Queens has the highest Asian student proportion of their student body.
+
+
+```{r message=FALSE, warning=FALSE}
+
+graph2=ggplot(scores, aes(x=Percent.Tested, y=Avg.Sat.Math, 
+                          color=Highest_race_Percent)) +geom_point()
+graph2 + labs(x="Percent of Student Body Tested",y="Average SAT Score for Math",
+    color="Race Majority in Each School", 
+    title="Average Math Sat Compared to Percent of School Tested")
+```
+From this graph we can see that the more students who are tested, the better the school average seems to be. Additionally, there is a trend of schools with Majority Asian populations and Majority White populations to not only have a higher percent of student body tested, but also test higher than schools with higher Hispanic and Black populations.
+
+```{r}
+ggplot(scores, aes(x=Percent.Hispanic, y=Avg.Sat.Math, color=Borough)) +
+geom_point()+labs(x="Percent of Student Body that is Hispanic",
+y="Average SAT Score for Math", color="NYC Boroughs", 
+    title="Hispanic Population in Each School Compared to Math SAT Score")
+
+```
+There is a negative correlation between Hispanic population percentage and Average Math SAT Score. Additionally, as shown earlier, the Bronx had the lowest SAT averages and the highest Hispanic Population in its schools. This can be seen on this graph as the red dots are mostly clustered toward the top of the percentages but lower of the SAT scores. From this we can conclude that schools with higher Hispanic populations do not test as well as those with lower proportions. This may be due to lack of funding in schools or access to test preparation. For further study, we could try to research the median income of each borough or high school to determine if wealth is a factor in this trend.
